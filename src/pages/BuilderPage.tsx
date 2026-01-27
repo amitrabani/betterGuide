@@ -154,7 +154,8 @@ function BuilderPage() {
       // Show new session modal if no session is loaded
       setShowNewModal(true)
     }
-  }, [sessionId, setSession, toast])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, setSession])
 
   const handleSave = async () => {
     if (!session) return

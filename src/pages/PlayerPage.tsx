@@ -126,7 +126,8 @@ function PlayerPage() {
       stop()
       releaseWakeLock()
     }
-  }, [sessionId, loadSession, stop, releaseWakeLock, toast])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, loadSession, stop, releaseWakeLock])
 
   // Manage wake lock based on playback
   useEffect(() => {
