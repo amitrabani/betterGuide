@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
 import { Layout } from './Layout'
+import { ErrorBoundary } from '@/components/ui'
 
 // Lazy load all pages
 const ExplorePage = lazy(() => import('@/pages/ExplorePage'))
@@ -18,12 +19,14 @@ function PageLoader() {
   )
 }
 
-// Wrap pages with Suspense
+// Wrap pages with Suspense and ErrorBoundary
 function withSuspense(Component: React.ComponentType) {
   return (
-    <Suspense fallback={<PageLoader />}>
-      <Component />
-    </Suspense>
+    <ErrorBoundary>
+      <Suspense fallback={<PageLoader />}>
+        <Component />
+      </Suspense>
+    </ErrorBoundary>
   )
 }
 

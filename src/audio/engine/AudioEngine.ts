@@ -42,10 +42,17 @@ class AudioEngineClass {
   async initialize(): Promise<void> {
     if (this.audioContext) return
 
-    this.audioContext = new AudioContext()
-    this.masterGain = this.audioContext.createGain()
-    this.masterGain.connect(this.audioContext.destination)
-    this.masterGain.gain.value = this.masterVolume
+    try {
+      this.audioContext = new AudioContext()
+      this.masterGain = this.audioContext.createGain()
+      this.masterGain.connect(this.audioContext.destination)
+      this.masterGain.gain.value = this.masterVolume
+    } catch (err) {
+      console.error('AudioEngine: Failed to create AudioContext:', err)
+      this.audioContext = null
+      this.masterGain = null
+      throw new Error('Audio is not supported in this browser')
+    }
   }
 
   async resume(): Promise<void> {
@@ -84,7 +91,13 @@ class AudioEngineClass {
 
   // Transport controls
   async play(): Promise<void> {
-    if (!this.session || !this.audioContext) {
+    // Don't play without a loaded session
+    if (!this.session || this.duration === 0) {
+      console.warn('AudioEngine: Cannot play - no session loaded')
+      return
+    }
+
+    if (!this.audioContext) {
       await this.initialize()
     }
 
@@ -251,28 +264,46 @@ class AudioEngineClass {
 
   // TTS for prompts
   private speakPrompt(prompt: PromptItem): void {
-    const utterance = new SpeechSynthesisUtterance(prompt.text)
-    utterance.rate = prompt.voice.rate
-    utterance.pitch = prompt.voice.pitch
-
-    // Find a matching voice if specified
-    if (prompt.voice.voice !== 'default') {
-      const voices = speechSynthesis.getVoices()
-      const voice = voices.find((v) => v.name.includes(prompt.voice.voice))
-      if (voice) {
-        utterance.voice = voice
-      }
-    }
-
-    utterance.onstart = () => {
+    if (typeof speechSynthesis === 'undefined') {
+      console.warn('AudioEngine: Speech synthesis not available')
       this.emit('prompt-start', { promptId: prompt.id, text: prompt.text })
+      this.emit('prompt-end', { promptId: prompt.id })
+      return
     }
 
-    utterance.onend = () => {
+    try {
+      const utterance = new SpeechSynthesisUtterance(prompt.text)
+      utterance.rate = prompt.voice.rate
+      utterance.pitch = prompt.voice.pitch
+
+      // Find a matching voice if specified
+      if (prompt.voice.voice !== 'default') {
+        const voices = speechSynthesis.getVoices()
+        const voice = voices.find((v) => v.name.includes(prompt.voice.voice))
+        if (voice) {
+          utterance.voice = voice
+        }
+      }
+
+      utterance.onstart = () => {
+        this.emit('prompt-start', { promptId: prompt.id, text: prompt.text })
+      }
+
+      utterance.onend = () => {
+        this.emit('prompt-end', { promptId: prompt.id })
+      }
+
+      utterance.onerror = (event) => {
+        console.warn('AudioEngine: Speech synthesis error:', event.error)
+        this.emit('prompt-end', { promptId: prompt.id })
+      }
+
+      speechSynthesis.speak(utterance)
+    } catch (err) {
+      console.warn('AudioEngine: Failed to speak prompt:', err)
+      this.emit('prompt-start', { promptId: prompt.id, text: prompt.text })
       this.emit('prompt-end', { promptId: prompt.id })
     }
-
-    speechSynthesis.speak(utterance)
   }
 
   // Update loop

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Play, Pause, SkipBack, Volume2, VolumeX, Maximize, Minimize, X } from 'lucide-react'
-import { Button, Slider } from '@/components/ui'
+import { ArrowLeft, Play, Pause, SkipBack, Volume2, VolumeX, Maximize, Minimize, X, PenTool, AlertCircle } from 'lucide-react'
+import { Button, Slider, useToast } from '@/components/ui'
 import { useAudioEngine } from '@/audio'
 import { getSession, savePracticeSession } from '@/services/persistence'
 import { canonicalSessions } from '@/data'
@@ -17,8 +17,11 @@ function formatTime(seconds: number): string {
 function PlayerPage() {
   const { sessionId } = useParams()
   const navigate = useNavigate()
+  const toast = useToast()
   const containerRef = useRef<HTMLDivElement>(null)
   const [session, setSession] = useState<Session | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [showVolume, setShowVolume] = useState(false)
   const [showControls, setShowControls] = useState(true)
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -84,19 +87,36 @@ function PlayerPage() {
   // Load session - check IndexedDB first, then canonical sessions
   useEffect(() => {
     const loadSessionData = async () => {
-      if (!sessionId) return
-
-      // Try to load from IndexedDB first
-      let sessionData = await getSession(sessionId)
-
-      // If not found, check canonical sessions
-      if (!sessionData) {
-        sessionData = canonicalSessions.find(s => s.id === sessionId)
+      if (!sessionId) {
+        setLoadError('No session ID provided')
+        setIsLoading(false)
+        return
       }
 
-      if (sessionData) {
-        setSession(sessionData)
-        loadSession(sessionData)
+      setIsLoading(true)
+      setLoadError(null)
+
+      try {
+        // Try to load from IndexedDB first
+        let sessionData = await getSession(sessionId)
+
+        // If not found, check canonical sessions
+        if (!sessionData) {
+          sessionData = canonicalSessions.find(s => s.id === sessionId)
+        }
+
+        if (sessionData) {
+          setSession(sessionData)
+          loadSession(sessionData)
+        } else {
+          setLoadError('Session not found')
+        }
+      } catch (err) {
+        console.error('Failed to load session:', err)
+        setLoadError('Failed to load session')
+        toast.error('Failed to load session')
+      } finally {
+        setIsLoading(false)
       }
     }
 
@@ -106,7 +126,7 @@ function PlayerPage() {
       stop()
       releaseWakeLock()
     }
-  }, [sessionId, loadSession, stop, releaseWakeLock])
+  }, [sessionId, loadSession, stop, releaseWakeLock, toast])
 
   // Manage wake lock based on playback
   useEffect(() => {
@@ -163,10 +183,30 @@ function PlayerPage() {
   // Get current prompt text
   const currentPrompt = session?.prompts.find((p) => p.id === currentPromptId)
 
-  if (!session) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <span className="loading loading-spinner loading-lg text-primary" />
+      </div>
+    )
+  }
+
+  if (loadError || !session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-error mx-auto mb-4" />
+          <h2 className="text-lg font-semibold mb-2">Unable to load session</h2>
+          <p className="text-base-content/60 mb-4">{loadError || 'Session not found'}</p>
+          <div className="flex gap-3 justify-center">
+            <Button variant="primary" onClick={() => navigate('/')}>
+              Browse Sessions
+            </Button>
+            <Button variant="ghost" onClick={() => navigate(-1)}>
+              Go Back
+            </Button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -279,6 +319,25 @@ function PlayerPage() {
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
+        {/* Mode toggle */}
+        <div className="flex justify-center mb-6">
+          <div className="inline-flex items-center gap-1 p-1 bg-base-300/50 rounded-full">
+            <button
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-primary text-primary-content shadow-sm"
+            >
+              <Play className="h-4 w-4" />
+              Play
+            </button>
+            <button
+              onClick={() => navigate(`/builder/${sessionId}`)}
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-base-content/60 hover:text-base-content hover:bg-base-200 transition-colors"
+            >
+              <PenTool className="h-4 w-4" />
+              Edit
+            </button>
+          </div>
+        </div>
+
         {/* Progress bar */}
         <div className="max-w-md mx-auto mb-6">
           <input
@@ -299,6 +358,7 @@ function PlayerPage() {
             variant="primary"
             className="w-16 h-16 rounded-full"
             onClick={togglePlayPause}
+            disabled={duration === 0}
           >
             {isPlaying ? (
               <Pause className="h-8 w-8" />

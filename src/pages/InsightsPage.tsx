@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { BarChart2, Flame, Clock, TrendingUp, Calendar } from 'lucide-react'
-import { Card, CardBody } from '@/components/ui'
+import { BarChart2, Flame, Clock, TrendingUp, Calendar, AlertCircle, RefreshCw } from 'lucide-react'
+import { Card, CardBody, Button } from '@/components/ui'
 import { getAllPractice, calculateStreak, getDailyStats } from '@/services/persistence'
 import { format, subDays, startOfWeek, eachDayOfInterval } from 'date-fns'
 
@@ -23,6 +23,7 @@ function InsightsPage() {
   const [weeklyMinutes, setWeeklyMinutes] = useState<number[]>([0, 0, 0, 0, 0, 0, 0])
   const [heatmapData, setHeatmapData] = useState<Map<string, number>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadStats()
@@ -30,6 +31,7 @@ function InsightsPage() {
 
   const loadStats = async () => {
     setLoading(true)
+    setError(null)
     try {
       const [practice, streakData, dailyStatsMap] = await Promise.all([
         getAllPractice(),
@@ -64,6 +66,9 @@ function InsightsPage() {
 
       // Set heatmap data
       setHeatmapData(dailyStatsMap)
+    } catch (err) {
+      console.error('Failed to load insights:', err)
+      setError('Failed to load practice data')
     } finally {
       setLoading(false)
     }
@@ -99,6 +104,22 @@ function InsightsPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <span className="loading loading-spinner loading-lg text-primary" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-error mx-auto mb-4" />
+          <h2 className="text-lg font-semibold mb-2">Failed to load insights</h2>
+          <p className="text-base-content/60 mb-4">{error}</p>
+          <Button variant="primary" onClick={loadStats}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
+        </div>
       </div>
     )
   }
@@ -206,8 +227,17 @@ function InsightsPage() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
-                <div className="flex flex-wrap gap-1" style={{ maxWidth: '728px' }}>
+              <div className="overflow-x-auto pb-2">
+                <div
+                  className="grid gap-[3px]"
+                  style={{
+                    gridTemplateRows: 'repeat(7, 1fr)',
+                    gridAutoFlow: 'column',
+                    gridAutoColumns: 'minmax(10px, 14px)',
+                    width: 'fit-content',
+                    minWidth: '100%',
+                  }}
+                >
                   {heatmapCells.map((cell, i) => {
                     const levelClasses = [
                       'bg-base-300',
@@ -220,14 +250,14 @@ function InsightsPage() {
                     return (
                       <div
                         key={i}
-                        className={`w-3 h-3 rounded-sm ${levelClasses[cell.level]} cursor-default`}
+                        className={`aspect-square rounded-sm ${levelClasses[cell.level]} cursor-default min-w-[10px] max-w-[14px]`}
                         title={`${cell.date}: ${cell.value} minutes`}
                       />
                     )
                   })}
                 </div>
               </div>
-              <div className="flex items-center gap-2 mt-4 text-xs text-base-content/60">
+              <div className="flex items-center justify-end gap-2 mt-4 text-xs text-base-content/60">
                 <span>Less</span>
                 <div className="flex gap-1">
                   <div className="w-3 h-3 rounded-sm bg-base-300" />
