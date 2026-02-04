@@ -1,3 +1,4 @@
+import { useDraggable } from '@dnd-kit/core'
 import { Flag } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SectionMarker, SectionType } from '@/types/session'
@@ -12,6 +13,61 @@ const sectionLabels: Record<SectionType, string> = {
   opening: 'Opening',
   main: 'Main Practice',
   closing: 'Closing',
+}
+
+interface SectionChipProps {
+  section: SectionMarker
+  zoom: number
+  isSelected: boolean
+  onClick: () => void
+}
+
+function SectionChip({ section, zoom, isSelected, onClick }: SectionChipProps) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: section.id,
+    data: {
+      type: 'section',
+      section,
+    },
+  })
+
+  const left = section.startTime * zoom
+  const width = (section.endTime - section.startTime) * zoom
+
+  const style = transform
+    ? {
+        left: `${left + transform.x}px`,
+        width: `${width}px`,
+        opacity: isDragging ? 0.8 : 1,
+        zIndex: isDragging ? 50 : 10,
+      }
+    : {
+        left: `${left}px`,
+        width: `${width}px`,
+      }
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'absolute top-1 h-6 rounded border-l-2 cursor-pointer',
+        'flex items-center gap-1 px-2 overflow-hidden',
+        'hover:brightness-110 transition-all',
+        sectionColors[section.type],
+        isSelected && 'ring-2 ring-base-content ring-offset-1',
+        isDragging && 'shadow-lg'
+      )}
+      style={style}
+      onClick={onClick}
+      {...listeners}
+      {...attributes}
+    >
+      <Flag className="h-3 w-3 flex-shrink-0" />
+      <span className="text-xs font-medium truncate">
+        {section.label || sectionLabels[section.type]}
+      </span>
+    </div>
+  )
 }
 
 interface SectionsLayerProps {
@@ -60,33 +116,15 @@ export function SectionsLayer({
           transform: `translateX(${-scrollX}px)`,
         }}
       >
-        {sections.map((section) => {
-          const left = section.startTime * zoom
-          const sectionWidth = (section.endTime - section.startTime) * zoom
-
-          return (
-            <div
-              key={section.id}
-              className={cn(
-                'absolute top-1 h-6 rounded border-l-2 cursor-pointer',
-                'flex items-center gap-1 px-2 overflow-hidden',
-                'hover:brightness-110 transition-all',
-                sectionColors[section.type],
-                selectedId === section.id && 'ring-2 ring-base-content ring-offset-1'
-              )}
-              style={{
-                left: `${left}px`,
-                width: `${sectionWidth}px`,
-              }}
-              onClick={() => onSelectSection(section.id)}
-            >
-              <Flag className="h-3 w-3 flex-shrink-0" />
-              <span className="text-xs font-medium truncate">
-                {section.label || sectionLabels[section.type]}
-              </span>
-            </div>
-          )
-        })}
+        {sections.map((section) => (
+          <SectionChip
+            key={section.id}
+            section={section}
+            zoom={zoom}
+            isSelected={section.id === selectedId}
+            onClick={() => onSelectSection(section.id)}
+          />
+        ))}
 
         {/* Empty state */}
         {sections.length === 0 && (

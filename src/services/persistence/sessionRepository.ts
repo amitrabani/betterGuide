@@ -1,4 +1,6 @@
 import { getDB } from './db'
+import { auth } from '@/services/firebase'
+import { pushSession, removeSession } from '@/services/firestore/firestoreSync'
 import type { Session, SessionVersion, Lineage, Intent } from '@/types/session'
 
 // Generate unique ID
@@ -29,6 +31,12 @@ export async function saveSession(session: Session): Promise<string> {
   }
 
   await db.put('sessions', sessionToSave)
+
+  // Sync to Firestore if user is authenticated
+  if (auth.currentUser) {
+    pushSession(auth.currentUser.uid, sessionToSave).catch(console.error)
+  }
+
   return sessionToSave.id
 }
 
@@ -40,6 +48,11 @@ export async function deleteSession(id: string): Promise<void> {
   const versions = await getVersionsForSession(id)
   const tx = db.transaction('versions', 'readwrite')
   await Promise.all(versions.map(v => tx.store.delete(v.id)))
+
+  // Sync deletion to Firestore if user is authenticated
+  if (auth.currentUser) {
+    removeSession(auth.currentUser.uid, id).catch(console.error)
+  }
 }
 
 export async function getSessionsByLineage(lineage: Lineage): Promise<Session[]> {

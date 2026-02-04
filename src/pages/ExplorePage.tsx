@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Compass, Clock, Play, Copy } from 'lucide-react'
+import { Compass, Clock, Plus } from 'lucide-react'
 import { Card, CardBody, Button } from '@/components/ui'
 import { canonicalSessions } from '@/data'
-import { saveSession, duplicateSession } from '@/services/persistence'
-import type { Lineage, Session } from '@/types'
+import type { Lineage } from '@/types'
 
 const lineages: { id: Lineage; name: string; description: string }[] = [
   { id: 'zazen', name: 'Zazen', description: 'Zen sitting meditation focusing on posture and breath' },
@@ -26,23 +25,26 @@ function ExplorePage() {
     ? canonicalSessions.filter(s => s.lineage === selectedLineage)
     : canonicalSessions
 
-  const handleCustomize = async (session: Session) => {
-    // Create a user copy of the canonical session
-    const userCopy = duplicateSession(session, `${session.name} (My Version)`)
-    await saveSession(userCopy)
-    navigate(`/builder/${userCopy.id}`)
+  const handleCreate = () => {
+    navigate('/builder')
   }
 
   return (
     <div className="min-h-screen p-6">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Compass className="text-primary" />
-          Explore
-        </h1>
-        <p className="text-base-content/70 mt-2">
-          Discover meditation practices from different traditions
-        </p>
+      <header className="mb-8 flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Compass className="text-primary" />
+            Explore
+          </h1>
+          <p className="text-base-content/70 mt-2">
+            Discover meditation practices from different traditions
+          </p>
+        </div>
+        <Button variant="primary" onClick={handleCreate}>
+          <Plus className="h-4 w-4 mr-1" />
+          Create
+        </Button>
       </header>
 
       {/* Lineage tabs */}
@@ -69,7 +71,11 @@ function ExplorePage() {
       {/* Session cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filteredSessions.map(session => (
-          <Card key={session.id} className="hover:shadow-lg transition-shadow">
+          <Card
+            key={session.id}
+            className="hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => navigate(`/player/${session.id}`)}
+          >
             <CardBody>
               <div className="flex justify-between items-start">
                 <div>
@@ -94,26 +100,6 @@ function ExplorePage() {
                 {formatDuration(session.duration)}
                 <span className="text-base-content/40 mx-1">·</span>
                 <span>{session.prompts.length} prompts</span>
-              </div>
-
-              <div className="flex gap-2 mt-4">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => navigate(`/player/${session.id}`)}
-                >
-                  <Play className="h-4 w-4 mr-1" />
-                  Start
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleCustomize(session)}
-                  title="Create your own version"
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
               </div>
             </CardBody>
           </Card>

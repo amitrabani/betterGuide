@@ -1,5 +1,7 @@
 // Core meditation session types
 
+import type { SessionVoice } from './voice'
+
 export type Lineage = 'zazen' | 'raja-yoga' | 'mindfulness' | 'vipassana'
 export type Intent = 'sleep' | 'anxiety' | 'focus' | 'energy' | 'general'
 
@@ -79,6 +81,7 @@ export interface Session {
   ambients: AmbientItem[]
   binaural: BinauralConfig | null
   sections: SectionMarker[]
+  voice?: SessionVoice
   createdAt: number // timestamp
   updatedAt: number // timestamp
 }

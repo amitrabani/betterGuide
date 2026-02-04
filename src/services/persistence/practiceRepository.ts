@@ -1,4 +1,6 @@
 import { getDB } from './db'
+import { auth } from '@/services/firebase'
+import { pushPractice } from '@/services/firestore/firestoreSync'
 import type { PracticeSession } from '@/types/analytics'
 import { format, startOfDay, startOfWeek, subDays } from 'date-fns'
 
@@ -16,6 +18,12 @@ export async function savePracticeSession(practice: Omit<PracticeSession, 'id'>)
   }
 
   await db.put('practice', session)
+
+  // Sync to Firestore if user is authenticated
+  if (auth.currentUser) {
+    pushPractice(auth.currentUser.uid, session).catch(console.error)
+  }
+
   return id
 }
 

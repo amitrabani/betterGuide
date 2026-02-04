@@ -6,14 +6,14 @@ import { cn } from '@/lib/utils'
 import { useBuilderStore } from '../../store/builderStore'
 import { TimeRuler } from './TimeRuler'
 import { Playhead } from './Playhead'
-import { LayerHeader } from './LayerHeader'
 import { PromptsLayer } from './PromptsLayer'
 import { AmbientLayer } from './AmbientLayer'
 import { BinauralLayer } from './BinauralLayer'
 import { SectionsLayer } from './SectionsLayer'
+import { AddItemDropdown } from '../AddItemDropdown'
 import { Button } from '@/components/ui'
 import { defaultLayers } from '@/types/timeline'
-import type { TimelineLayer, LayerType } from '@/types/timeline'
+import type { TimelineLayer } from '@/types/timeline'
 
 interface TimelineProps {
   className?: string
@@ -21,7 +21,7 @@ interface TimelineProps {
 
 export function Timeline({ className }: TimelineProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [layers, setLayers] = useState<TimelineLayer[]>(defaultLayers)
+  const [layers] = useState<TimelineLayer[]>(defaultLayers)
 
   const session = useBuilderStore((s) => s.session)
   const timeline = useBuilderStore((s) => s.timeline)
@@ -29,6 +29,8 @@ export function Timeline({ className }: TimelineProps) {
   const setScrollX = useBuilderStore((s) => s.setScrollX)
   const selectItem = useBuilderStore((s) => s.selectItem)
   const movePrompt = useBuilderStore((s) => s.movePrompt)
+  const moveAmbient = useBuilderStore((s) => s.moveAmbient)
+  const moveSection = useBuilderStore((s) => s.moveSection)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -38,26 +40,26 @@ export function Timeline({ className }: TimelineProps) {
     })
   )
 
-  const toggleLayer = useCallback((id: LayerType, field: 'visible' | 'locked' | 'expanded') => {
-    setLayers((prev) =>
-      prev.map((layer) =>
-        layer.id === id ? { ...layer, [field]: !layer[field] } : layer
-      )
-    )
-  }, [])
-
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, delta } = event
       const data = active.data.current
 
-      if (data?.type === 'prompt' && session) {
-        const deltaTime = delta.x / timeline.zoom
+      if (!session) return
+      const deltaTime = delta.x / timeline.zoom
+
+      if (data?.type === 'prompt') {
         const newStartTime = data.prompt.startTime + deltaTime
         movePrompt(active.id as string, Math.max(0, newStartTime))
+      } else if (data?.type === 'ambient') {
+        const newStartTime = data.ambient.startTime + deltaTime
+        moveAmbient(active.id as string, Math.max(0, newStartTime))
+      } else if (data?.type === 'section') {
+        const newStartTime = data.section.startTime + deltaTime
+        moveSection(active.id as string, Math.max(0, newStartTime))
       }
     },
-    [session, timeline.zoom, movePrompt]
+    [session, timeline.zoom, movePrompt, moveAmbient, moveSection]
   )
 
   // Handle scroll
@@ -102,7 +104,8 @@ export function Timeline({ className }: TimelineProps) {
       <div className={cn('flex flex-col bg-base-100 border border-base-300 rounded-lg overflow-hidden', className)}>
         {/* Toolbar */}
         <div className="flex items-center gap-2 px-3 py-2 bg-base-200 border-b border-base-300">
-          <span className="text-sm font-medium mr-4">Timeline</span>
+          <AddItemDropdown />
+          <div className="flex-1" />
           <Button variant="ghost" size="xs" onClick={() => setZoom(timeline.zoom / 1.2)}>
             <ZoomOut className="h-4 w-4" />
           </Button>
@@ -116,52 +119,21 @@ export function Timeline({ className }: TimelineProps) {
 
         {/* Timeline content */}
         <div className="flex flex-1 min-h-0">
-          {/* Layer headers (fixed left column) */}
-          <div className="flex-shrink-0 w-[180px] border-r border-base-300">
-            {/* Ruler spacer */}
-            <div className="h-8 bg-base-200 border-b border-base-300" />
-
-            {/* Layer headers */}
-            <LayerHeader
-              id="sections"
-              label="Sections"
-              visible={sectionsLayer.visible}
-              locked={sectionsLayer.locked}
-              expanded={sectionsLayer.expanded}
-              onToggleVisible={() => toggleLayer('sections', 'visible')}
-              onToggleLocked={() => toggleLayer('sections', 'locked')}
-              onToggleExpanded={() => toggleLayer('sections', 'expanded')}
-            />
-            <LayerHeader
-              id="prompts"
-              label="Prompts"
-              visible={promptsLayer.visible}
-              locked={promptsLayer.locked}
-              expanded={promptsLayer.expanded}
-              onToggleVisible={() => toggleLayer('prompts', 'visible')}
-              onToggleLocked={() => toggleLayer('prompts', 'locked')}
-              onToggleExpanded={() => toggleLayer('prompts', 'expanded')}
-            />
-            <LayerHeader
-              id="ambient"
-              label="Ambient"
-              visible={ambientLayer.visible}
-              locked={ambientLayer.locked}
-              expanded={ambientLayer.expanded}
-              onToggleVisible={() => toggleLayer('ambient', 'visible')}
-              onToggleLocked={() => toggleLayer('ambient', 'locked')}
-              onToggleExpanded={() => toggleLayer('ambient', 'expanded')}
-            />
-            <LayerHeader
-              id="binaural"
-              label="Binaural"
-              visible={binauralLayer.visible}
-              locked={binauralLayer.locked}
-              expanded={binauralLayer.expanded}
-              onToggleVisible={() => toggleLayer('binaural', 'visible')}
-              onToggleLocked={() => toggleLayer('binaural', 'locked')}
-              onToggleExpanded={() => toggleLayer('binaural', 'expanded')}
-            />
+          {/* Layer labels (fixed left column) */}
+          <div className="flex-shrink-0 w-20 border-r border-base-300 bg-base-200">
+            <div className="h-8 border-b border-base-300" />
+            <div className="h-12 flex items-center px-2 border-b border-base-300 text-xs font-medium text-base-content/70">
+              Sections
+            </div>
+            <div className="h-12 flex items-center px-2 border-b border-base-300 text-xs font-medium text-base-content/70">
+              Prompts
+            </div>
+            <div className="h-12 flex items-center px-2 border-b border-base-300 text-xs font-medium text-base-content/70">
+              Ambient
+            </div>
+            <div className="h-12 flex items-center px-2 text-xs font-medium text-base-content/70">
+              Binaural
+            </div>
           </div>
 
           {/* Scrollable timeline area */}
@@ -174,7 +146,7 @@ export function Timeline({ className }: TimelineProps) {
             <TimeRuler
               duration={session.duration}
               zoom={timeline.zoom}
-              scrollX={0} // Already scrolled by container
+              scrollX={0}
             />
 
             {/* Layers container */}

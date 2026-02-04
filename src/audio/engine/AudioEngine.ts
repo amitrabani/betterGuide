@@ -1,10 +1,18 @@
 import type { TransportState, AudioEventType, AudioEventListener, AudioEvent } from '@/types/audio'
-import type { Session, PromptItem } from '@/types/session'
+import type { Session, PromptItem, AmbientItem } from '@/types/session'
 
 interface ScheduledPrompt {
   prompt: PromptItem
   utterance: SpeechSynthesisUtterance | null
   triggered: boolean
+}
+
+interface ActiveAmbient {
+  item: AmbientItem
+  source: AudioBufferSourceNode | null
+  gainNode: GainNode | null
+  started: boolean
+  stopped: boolean
 }
 
 class AudioEngineClass {
@@ -29,6 +37,12 @@ class AudioEngineClass {
   private listeners: Set<AudioEventListener> = new Set()
   private masterVolume: number = 1
   private isMuted: boolean = false
+
+  private ambientBuffers: Map<string, AudioBuffer> = new Map()
+  private activeAmbients: ActiveAmbient[] = []
+
+  private activeTTSSource: AudioBufferSourceNode | null = null
+  private ttsBufferCache: Map<string, AudioBuffer> = new Map()
 
   private constructor() {}
 
@@ -82,6 +96,7 @@ class AudioEngineClass {
     this.session = session
     this.duration = session.duration
     this.currentTime = 0
+    this.ttsBufferCache.clear()
     this.scheduledPrompts = session.prompts.map((prompt) => ({
       prompt,
       utterance: null,
@@ -119,6 +134,9 @@ class AudioEngineClass {
       this.startBinaural()
     }
 
+    // Prepare and start ambient sounds
+    await this.prepareAmbients()
+
     // Start update loop
     this.startUpdateLoop()
 
@@ -134,8 +152,12 @@ class AudioEngineClass {
     // Stop binaural
     this.stopBinaural()
 
+    // Stop ambient sounds
+    this.stopAllAmbients()
+
     // Stop any ongoing speech
     speechSynthesis.cancel()
+    this.stopActiveTTS()
 
     // Stop update loop
     this.stopUpdateLoop()
@@ -151,8 +173,12 @@ class AudioEngineClass {
     // Stop binaural
     this.stopBinaural()
 
+    // Stop ambient sounds
+    this.stopAllAmbients()
+
     // Stop speech
     speechSynthesis.cancel()
+    this.stopActiveTTS()
 
     // Reset prompts
     this.scheduledPrompts.forEach((sp) => {
@@ -184,6 +210,7 @@ class AudioEngineClass {
 
     // Cancel current speech
     speechSynthesis.cancel()
+    this.stopActiveTTS()
 
     if (wasPlaying) {
       this.startTimestamp = Date.now() - clampedTime * 1000
@@ -262,8 +289,131 @@ class AudioEngineClass {
     }
   }
 
+  // Ambient sounds
+  private async loadAmbientBuffer(soundId: string): Promise<AudioBuffer | null> {
+    if (this.ambientBuffers.has(soundId)) {
+      return this.ambientBuffers.get(soundId)!
+    }
+    if (!this.audioContext) return null
+
+    const { ambientSounds } = await import('@/types/audio')
+    const sound = ambientSounds.find(s => s.id === soundId)
+    if (!sound) return null
+
+    try {
+      const response = await fetch(`/sounds/${sound.filename}`)
+      if (!response.ok) return null
+      const arrayBuffer = await response.arrayBuffer()
+      const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer)
+      this.ambientBuffers.set(soundId, audioBuffer)
+      this.emit('ambient-loaded', { soundId })
+      return audioBuffer
+    } catch (err) {
+      console.warn('AudioEngine: Failed to load ambient sound:', soundId, err)
+      this.emit('error', { message: `Failed to load ambient: ${soundId}` })
+      return null
+    }
+  }
+
+  private async prepareAmbients(): Promise<void> {
+    if (!this.session || this.session.ambients.length === 0) return
+
+    this.activeAmbients = this.session.ambients.map(item => ({
+      item,
+      source: null,
+      gainNode: null,
+      started: false,
+      stopped: false,
+    }))
+
+    // Preload all needed buffers
+    const uniqueSounds = [...new Set(this.session.ambients.map(a => a.soundId))]
+    await Promise.all(uniqueSounds.map(id => this.loadAmbientBuffer(id)))
+  }
+
+  private checkAmbients(): void {
+    if (!this.audioContext || !this.masterGain) return
+
+    for (const aa of this.activeAmbients) {
+      const { item } = aa
+
+      // Start ambient if time has come
+      if (!aa.started && this.currentTime >= item.startTime) {
+        aa.started = true
+        const buffer = this.ambientBuffers.get(item.soundId)
+        if (!buffer) continue
+
+        const source = this.audioContext.createBufferSource()
+        source.buffer = buffer
+        source.loop = true
+
+        const gain = this.audioContext.createGain()
+        // Start at 0 for fade-in
+        gain.gain.value = 0
+        source.connect(gain)
+        gain.connect(this.masterGain)
+
+        source.start()
+        aa.source = source
+        aa.gainNode = gain
+
+        // Fade in
+        const targetVol = item.volume
+        if (item.fadeIn > 0) {
+          gain.gain.linearRampToValueAtTime(targetVol, this.audioContext.currentTime + item.fadeIn)
+        } else {
+          gain.gain.value = targetVol
+        }
+      }
+
+      // Fade out and stop ambient when approaching endTime
+      if (aa.started && !aa.stopped && aa.gainNode && aa.source) {
+        const fadeOutStart = item.endTime - item.fadeOut
+        if (this.currentTime >= fadeOutStart) {
+          aa.stopped = true
+          const remaining = Math.max(0, item.endTime - this.currentTime)
+          if (remaining > 0 && item.fadeOut > 0) {
+            aa.gainNode.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + remaining)
+            setTimeout(() => {
+              aa.source?.stop()
+              aa.source?.disconnect()
+              aa.gainNode?.disconnect()
+            }, remaining * 1000 + 100)
+          } else {
+            aa.source.stop()
+            aa.source.disconnect()
+            aa.gainNode.disconnect()
+          }
+        }
+      }
+    }
+  }
+
+  private stopAllAmbients(): void {
+    for (const aa of this.activeAmbients) {
+      if (aa.source) {
+        try { aa.source.stop() } catch { /* already stopped */ }
+        aa.source.disconnect()
+      }
+      if (aa.gainNode) {
+        aa.gainNode.disconnect()
+      }
+    }
+    this.activeAmbients = []
+  }
+
   // TTS for prompts
   private speakPrompt(prompt: PromptItem): void {
+    // Route to Deepgram if session has a Deepgram voice configured
+    if (this.session?.voice?.type === 'deepgram') {
+      this.speakWithDeepgram(prompt, this.session.voice.voiceId)
+      return
+    }
+
+    this.speakWithBrowser(prompt)
+  }
+
+  private speakWithBrowser(prompt: PromptItem): void {
     if (typeof speechSynthesis === 'undefined') {
       console.warn('AudioEngine: Speech synthesis not available')
       this.emit('prompt-start', { promptId: prompt.id, text: prompt.text })
@@ -294,7 +444,9 @@ class AudioEngineClass {
       }
 
       utterance.onerror = (event) => {
-        console.warn('AudioEngine: Speech synthesis error:', event.error)
+        if (event.error !== 'canceled') {
+          console.warn('AudioEngine: Speech synthesis error:', event.error)
+        }
         this.emit('prompt-end', { promptId: prompt.id })
       }
 
@@ -303,6 +455,65 @@ class AudioEngineClass {
       console.warn('AudioEngine: Failed to speak prompt:', err)
       this.emit('prompt-start', { promptId: prompt.id, text: prompt.text })
       this.emit('prompt-end', { promptId: prompt.id })
+    }
+  }
+
+  private async speakWithDeepgram(prompt: PromptItem, voiceId: string): Promise<void> {
+    if (!this.audioContext || !this.masterGain) {
+      this.emit('prompt-start', { promptId: prompt.id, text: prompt.text })
+      this.emit('prompt-end', { promptId: prompt.id })
+      return
+    }
+
+    const cacheKey = `dg:${voiceId}:${prompt.text}`
+
+    try {
+      this.emit('prompt-start', { promptId: prompt.id, text: prompt.text })
+
+      // Check in-memory AudioBuffer cache
+      let audioBuffer = this.ttsBufferCache.get(cacheKey)
+
+      if (!audioBuffer) {
+        // Fetch from IndexedDB cache or Cloud Function
+        const { synthesizeSpeech } = await import('@/services/tts/ttsService')
+        const arrayBuffer = await synthesizeSpeech(prompt.text, voiceId)
+        audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer.slice(0))
+        this.ttsBufferCache.set(cacheKey, audioBuffer)
+      }
+
+      // Don't play if transport state changed while we were loading
+      if (this.transportState !== 'playing') {
+        this.emit('prompt-end', { promptId: prompt.id })
+        return
+      }
+
+      const source = this.audioContext.createBufferSource()
+      source.buffer = audioBuffer
+      source.connect(this.masterGain)
+
+      source.onended = () => {
+        if (this.activeTTSSource === source) {
+          this.activeTTSSource = null
+        }
+        this.emit('prompt-end', { promptId: prompt.id })
+      }
+
+      this.stopActiveTTS()
+      this.activeTTSSource = source
+      source.start()
+    } catch (err) {
+      console.warn('AudioEngine: Deepgram TTS failed, falling back to browser:', err)
+      this.emit('prompt-end', { promptId: prompt.id })
+      // Fall back to browser TTS
+      this.speakWithBrowser(prompt)
+    }
+  }
+
+  private stopActiveTTS(): void {
+    if (this.activeTTSSource) {
+      try { this.activeTTSSource.stop() } catch { /* already stopped */ }
+      this.activeTTSSource.disconnect()
+      this.activeTTSSource = null
     }
   }
 
@@ -320,6 +531,9 @@ class AudioEngineClass {
         this.stop()
         return
       }
+
+      // Check ambient sounds
+      this.checkAmbients()
 
       // Check for prompts to trigger
       this.scheduledPrompts.forEach((sp) => {

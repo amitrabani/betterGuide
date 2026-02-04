@@ -84,6 +84,12 @@ function PlayerPage() {
     onLongPress: handleExit,
   })
 
+  // Keep refs for cleanup so the effect doesn't re-run when these change
+  const stopRef = useRef(stop)
+  const releaseWakeLockRef = useRef(releaseWakeLock)
+  stopRef.current = stop
+  releaseWakeLockRef.current = releaseWakeLock
+
   // Load session - check IndexedDB first, then canonical sessions
   useEffect(() => {
     const loadSessionData = async () => {
@@ -123,11 +129,11 @@ function PlayerPage() {
     loadSessionData()
 
     return () => {
-      stop()
-      releaseWakeLock()
+      stopRef.current()
+      releaseWakeLockRef.current()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, loadSession, stop, releaseWakeLock])
+  }, [sessionId])
 
   // Manage wake lock based on playback
   useEffect(() => {
@@ -340,14 +346,32 @@ function PlayerPage() {
         </div>
 
         {/* Progress bar */}
-        <div className="max-w-md mx-auto mb-6">
-          <input
-            type="range"
-            min={0}
-            max={duration}
-            value={currentTime}
-            onChange={(e) => seek(Number(e.target.value))}
-            className="range range-sm range-primary w-full"
+        <div
+          className="max-w-md mx-auto mb-6 h-3 bg-base-300 rounded-full cursor-pointer relative touch-none"
+          onPointerDown={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect()
+            const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+            seek(ratio * duration)
+            e.currentTarget.setPointerCapture(e.pointerId)
+          }}
+          onPointerMove={(e) => {
+            if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+              const rect = e.currentTarget.getBoundingClientRect()
+              const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+              seek(ratio * duration)
+            }
+          }}
+          onPointerUp={(e) => {
+            e.currentTarget.releasePointerCapture(e.pointerId)
+          }}
+        >
+          <div
+            className="absolute inset-y-0 left-0 bg-primary rounded-full pointer-events-none"
+            style={{ width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
+          />
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rounded-full shadow pointer-events-none"
+            style={{ left: duration > 0 ? `calc(${(currentTime / duration) * 100}% - 8px)` : '0px' }}
           />
         </div>
 

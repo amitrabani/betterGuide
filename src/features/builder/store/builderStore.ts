@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 import type { Session, PromptItem, AmbientItem, BinauralConfig, SectionMarker, Lineage } from '@/types/session'
+import type { SessionVoice } from '@/types/voice'
 import type { TimelineState, LayerType, HistoryEntry } from '@/types/timeline'
 import { defaultTimelineConfig } from '@/types/timeline'
 
@@ -42,6 +43,10 @@ interface BuilderState {
   addAmbient: (ambient: AmbientItem) => void
   updateAmbient: (id: string, updates: Partial<AmbientItem>) => void
   deleteAmbient: (id: string) => void
+  moveAmbient: (id: string, newStartTime: number) => void
+
+  // Voice actions
+  setVoice: (voice: SessionVoice | undefined) => void
 
   // Binaural actions
   setBinaural: (config: BinauralConfig | null) => void
@@ -51,6 +56,7 @@ interface BuilderState {
   addSection: (section: SectionMarker) => void
   updateSection: (id: string, updates: Partial<SectionMarker>) => void
   deleteSection: (id: string) => void
+  moveSection: (id: string, newStartTime: number) => void
 
   // History actions
   undo: () => void
@@ -284,6 +290,26 @@ export const useBuilderStore = create<BuilderState>()(
       })
     },
 
+    moveAmbient: (id, newStartTime) => {
+      const { session, saveToHistory } = get()
+      if (!session) return
+
+      saveToHistory('Move ambient')
+      set({
+        session: {
+          ...session,
+          ambients: session.ambients.map((a) => {
+            if (a.id !== id) return a
+            const duration = a.endTime - a.startTime
+            const clamped = Math.max(0, newStartTime)
+            return { ...a, startTime: clamped, endTime: clamped + duration }
+          }),
+          updatedAt: Date.now(),
+        },
+        isDirty: true,
+      })
+    },
+
     deleteAmbient: (id) => {
       const { session, saveToHistory } = get()
       if (!session) return
@@ -301,6 +327,22 @@ export const useBuilderStore = create<BuilderState>()(
           selectedItemId: null,
           selectedLayerType: null,
         },
+      })
+    },
+
+    // Voice actions
+    setVoice: (voice) => {
+      const { session, saveToHistory } = get()
+      if (!session) return
+
+      saveToHistory(voice ? 'Set voice' : 'Remove voice')
+      set({
+        session: {
+          ...session,
+          voice,
+          updatedAt: Date.now(),
+        },
+        isDirty: true,
       })
     },
 
@@ -362,6 +404,26 @@ export const useBuilderStore = create<BuilderState>()(
           sections: session.sections.map((s) =>
             s.id === id ? { ...s, ...updates } : s
           ),
+          updatedAt: Date.now(),
+        },
+        isDirty: true,
+      })
+    },
+
+    moveSection: (id, newStartTime) => {
+      const { session, saveToHistory } = get()
+      if (!session) return
+
+      saveToHistory('Move section')
+      set({
+        session: {
+          ...session,
+          sections: session.sections.map((s) => {
+            if (s.id !== id) return s
+            const duration = s.endTime - s.startTime
+            const clamped = Math.max(0, newStartTime)
+            return { ...s, startTime: clamped, endTime: clamped + duration }
+          }),
           updatedAt: Date.now(),
         },
         isDirty: true,

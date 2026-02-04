@@ -1,17 +1,23 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 
 export function useWakeLock() {
   const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null)
   const [isSupported] = useState(() => 'wakeLock' in navigator)
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null)
+
+  // Keep ref in sync
+  wakeLockRef.current = wakeLock
 
   const requestWakeLock = useCallback(async () => {
     if (!isSupported) return
 
     try {
       const sentinel = await navigator.wakeLock.request('screen')
+      wakeLockRef.current = sentinel
       setWakeLock(sentinel)
 
       sentinel.addEventListener('release', () => {
+        wakeLockRef.current = null
         setWakeLock(null)
       })
     } catch (err) {
@@ -20,23 +26,24 @@ export function useWakeLock() {
   }, [isSupported])
 
   const releaseWakeLock = useCallback(async () => {
-    if (wakeLock) {
-      await wakeLock.release()
+    if (wakeLockRef.current) {
+      await wakeLockRef.current.release()
+      wakeLockRef.current = null
       setWakeLock(null)
     }
-  }, [wakeLock])
+  }, [])
 
   // Re-acquire wake lock when document becomes visible
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && wakeLock === null && isSupported) {
+      if (document.visibilityState === 'visible' && wakeLockRef.current === null && isSupported) {
         requestWakeLock()
       }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [wakeLock, isSupported, requestWakeLock])
+  }, [isSupported, requestWakeLock])
 
   return {
     isActive: !!wakeLock,

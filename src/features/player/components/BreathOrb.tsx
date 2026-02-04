@@ -64,10 +64,10 @@ export function BreathOrb({ isPlaying, progress, className }: BreathOrbProps) {
         }
         @keyframes pulse-glow {
           0%, 100% {
-            box-shadow: 0 0 20px rgba(var(--primary-rgb, 134, 239, 172), 0.3);
+            box-shadow: 0 0 20px oklch(45% 0.12 175 / 0.3);
           }
           50% {
-            box-shadow: 0 0 40px rgba(var(--primary-rgb, 134, 239, 172), 0.6);
+            box-shadow: 0 0 40px oklch(45% 0.12 175 / 0.5);
           }
         }
       `}</style>

@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { PenTool, Save, Play, AlertCircle } from 'lucide-react'
+import { PenTool, Save, Play, AlertCircle, Mic } from 'lucide-react'
 import { Button, Input, Select, Modal, ModalActions, useToast } from '@/components/ui'
 import { Timeline, TransportControls, PropertiesPanel } from '@/features/builder'
+import { VoicePickerModal } from '@/features/builder/components/VoicePickerModal'
 import { useBuilderStore } from '@/features/builder'
 import { getSession, saveSession } from '@/services/persistence'
+import { getVoiceById } from '@/services/tts/deepgramVoices'
+import { AudioEngine } from '@/audio'
+import { canonicalSessions } from '@/data'
 import type { Lineage } from '@/types/session'
+import type { SessionVoice } from '@/types/voice'
 
 const lineages: { id: Lineage; name: string }[] = [
   { id: 'zazen', name: 'Zazen' },
@@ -119,6 +124,7 @@ function BuilderPage() {
   const { sessionId } = useParams()
   const navigate = useNavigate()
   const [showNewModal, setShowNewModal] = useState(false)
+  const [showVoiceModal, setShowVoiceModal] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -127,6 +133,15 @@ function BuilderPage() {
   const session = useBuilderStore((s) => s.session)
   const isDirty = useBuilderStore((s) => s.isDirty)
   const setSession = useBuilderStore((s) => s.setSession)
+  const setVoice = useBuilderStore((s) => s.setVoice)
+
+  const voiceLabel = session?.voice?.type === 'deepgram'
+    ? getVoiceById(session.voice.voiceId)?.name ?? 'Deepgram Voice'
+    : 'Browser Voice'
+
+  const handleVoiceSelect = (voice: SessionVoice) => {
+    setVoice(voice.type === 'browser' ? undefined : voice)
+  }
 
   // Load session if editing
   useEffect(() => {
@@ -135,8 +150,9 @@ function BuilderPage() {
       setLoadError(null)
       getSession(sessionId)
         .then((loaded) => {
-          if (loaded) {
-            setSession(loaded)
+          const session = loaded || canonicalSessions.find(s => s.id === sessionId)
+          if (session) {
+            setSession(session)
           } else {
             setLoadError('Session not found')
             toast.error('Session not found')
@@ -173,13 +189,16 @@ function BuilderPage() {
     }
   }
 
-  const handlePreview = () => {
-    if (session) {
-      // Save first, then navigate to player
-      handleSave().then(() => {
-        navigate(`/player/${session.id}`)
-      })
+  const handlePreview = async () => {
+    if (!session) return
+    // Stop builder playback before switching to player
+    AudioEngine.stop()
+    try {
+      await saveSession(session)
+    } catch (err) {
+      console.error('Failed to save before preview:', err)
     }
+    navigate(`/player/${session.id}`)
   }
 
   // Show loading state
@@ -224,16 +243,28 @@ function BuilderPage() {
               )}
             </div>
           </div>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleSave}
-            loading={isSaving}
-            disabled={!session || !isDirty}
-          >
-            <Save className="h-4 w-4 mr-1" />
-            Save
-          </Button>
+          <div className="flex items-center gap-2">
+            {session && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowVoiceModal(true)}
+              >
+                <Mic className="h-4 w-4 mr-1" />
+                {voiceLabel}
+              </Button>
+            )}
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSave}
+              loading={isSaving}
+              disabled={!session || !isDirty}
+            >
+              <Save className="h-4 w-4 mr-1" />
+              Save
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -288,6 +319,14 @@ function BuilderPage() {
       <NewSessionModal
         isOpen={showNewModal}
         onClose={() => setShowNewModal(false)}
+      />
+
+      {/* Voice picker modal */}
+      <VoicePickerModal
+        isOpen={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        currentVoice={session?.voice}
+        onSelect={handleVoiceSelect}
       />
     </div>
   )
