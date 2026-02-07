@@ -39,7 +39,7 @@ function UserMenu() {
           )}
         </div>
       </div>
-      <ul tabIndex={0} className="dropdown-content menu bg-base-200 rounded-box z-50 w-52 p-2 shadow-lg mt-2">
+      <ul tabIndex={0} className="dropdown-content menu bg-base-200 border border-white/10 rounded-box z-50 w-52 p-2 shadow-lg mt-2">
         <li className="menu-title px-4 py-2">
           <span className="text-xs text-base-content/60">{user.email}</span>
         </li>
@@ -73,43 +73,61 @@ export function Layout() {
       {/* PWA Install Banner */}
       <InstallBanner />
 
-      {/* Bottom navigation for mobile/tablet */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex flex-row items-center justify-around bg-base-100 border-t border-base-200 safe-area-inset-bottom h-16" aria-label="Main navigation">
+      {/* Bottom navigation for mobile/tablet — glassmorphism */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex flex-row items-center justify-around glass-nav border-t border-white/5 safe-area-inset-bottom h-16" aria-label="Main navigation">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
+            end={to === '/'}
             className={({ isActive }) =>
               cn(
-                'flex flex-col items-center justify-center gap-1 py-2 px-4 transition-colors',
-                isActive ? 'text-primary' : 'text-base-content/60'
+                'flex flex-col items-center justify-center gap-1 py-2 px-4 rounded-xl transition-all',
+                isActive
+                  ? 'text-primary'
+                  : 'text-base-content/40 hover:text-base-content/60'
               )
             }
           >
-            <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
-            <span className="text-xs">{label}</span>
+            {({ isActive }) => (
+              <>
+                <Icon className={cn('h-5 w-5 sm:h-6 sm:w-6 transition-transform duration-200', isActive && 'scale-110')} />
+                <span className="text-xs">{label}</span>
+                {isActive && (
+                  <div className="absolute bottom-1 w-1 h-1 rounded-full bg-primary nav-indicator-active" />
+                )}
+              </>
+            )}
           </NavLink>
         ))}
         <UserMenu />
       </nav>
 
-      {/* Side navigation for desktop */}
-      <aside className="hidden lg:flex fixed left-0 top-0 h-full w-20 bg-base-200 flex-col items-center py-6 gap-2 z-50" role="navigation" aria-label="Main navigation">
+      {/* Side navigation for desktop — dark gradient */}
+      <aside className="hidden lg:flex fixed left-0 top-0 h-full w-20 bg-gradient-to-b from-base-200 to-base-100 border-r border-white/5 flex-col items-center py-6 gap-2 z-50" role="navigation" aria-label="Main navigation">
         <div className="text-2xl font-bold text-primary mb-6">B</div>
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
+            end={to === '/'}
             className={({ isActive }) =>
               cn(
-                'flex flex-col items-center gap-1 p-3 rounded-lg transition-colors w-16',
-                'hover:bg-base-300',
-                isActive && 'bg-primary/10 text-primary'
+                'relative flex flex-col items-center gap-1 p-3 rounded-xl transition-all w-16',
+                'hover:bg-white/5',
+                isActive ? 'bg-primary/10 text-primary' : 'text-base-content/40'
               )
             }
           >
-            <Icon className="h-5 w-5" />
-            <span className="text-xs">{label}</span>
+            {({ isActive }) => (
+              <>
+                <Icon className={cn('h-5 w-5 transition-transform duration-200', isActive && 'scale-110')} />
+                <span className="text-xs">{label}</span>
+                {isActive && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-8 rounded-r-full bg-primary nav-indicator-active" />
+                )}
+              </>
+            )}
           </NavLink>
         ))}
         <div className="mt-auto mb-4">

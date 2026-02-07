@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { BarChart2, Flame, Clock, TrendingUp, Calendar, AlertCircle, RefreshCw } from 'lucide-react'
-import { Card, CardBody, Button } from '@/components/ui'
+import { Card, CardBody, Button, Skeleton, StatCardSkeleton, ChartSkeleton } from '@/components/ui'
 import { getAllPractice, calculateStreak, getDailyStats } from '@/services/persistence'
 import { format, subDays, startOfWeek, eachDayOfInterval } from 'date-fns'
 
@@ -102,8 +102,18 @@ function InsightsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <span className="loading loading-spinner loading-lg text-primary" />
+      <div className="min-h-screen p-6 lg:p-8 animate-page-enter">
+        <div className="mb-8">
+          <Skeleton className="h-9 w-36 mb-3" />
+          <Skeleton className="h-5 w-52" />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <StatCardSkeleton key={i} />
+          ))}
+        </div>
+        <ChartSkeleton className="mb-8" />
+        <ChartSkeleton />
       </div>
     )
   }
@@ -125,84 +135,90 @@ function InsightsPage() {
   }
 
   return (
-    <div className="min-h-screen p-6">
+    <div className="min-h-screen p-6 lg:p-8 animate-page-enter">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
+        <h1 className="text-3xl font-bold flex items-center gap-2 tracking-tight">
           <BarChart2 className="text-primary" />
           Insights
         </h1>
-        <p className="text-base-content/70 mt-2">
+        <p className="text-base-content/50 mt-2">
           Track your meditation practice
         </p>
       </header>
 
-      {/* Stats overview */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        <Card>
+      {/* Stats overview — glass cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8 stagger-children">
+        <Card variant="glass" className="animate-fade-scale-in">
           <CardBody className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-warning/20 flex items-center justify-center">
               <Flame className="h-6 w-6 text-warning" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{stats.currentStreak}</p>
-              <p className="text-sm text-base-content/60">Day Streak</p>
+              <p className="text-2xl font-bold animate-count-up">{stats.currentStreak}</p>
+              <p className="text-sm text-base-content/50">Day Streak</p>
             </div>
           </CardBody>
         </Card>
 
-        <Card>
+        <Card variant="glass" className="animate-fade-scale-in">
           <CardBody className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
               <Clock className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{stats.totalMinutes}</p>
-              <p className="text-sm text-base-content/60">Total Minutes</p>
+              <p className="text-2xl font-bold animate-count-up">{stats.totalMinutes}</p>
+              <p className="text-sm text-base-content/50">Total Minutes</p>
             </div>
           </CardBody>
         </Card>
 
-        <Card>
+        <Card variant="glass" className="animate-fade-scale-in">
           <CardBody className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-success/20 flex items-center justify-center">
               <TrendingUp className="h-6 w-6 text-success" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{stats.sessionsCompleted}</p>
-              <p className="text-sm text-base-content/60">Sessions</p>
+              <p className="text-2xl font-bold animate-count-up">{stats.sessionsCompleted}</p>
+              <p className="text-sm text-base-content/50">Sessions</p>
             </div>
           </CardBody>
         </Card>
 
-        <Card>
+        <Card variant="glass" className="animate-fade-scale-in">
           <CardBody className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center">
               <BarChart2 className="h-6 w-6 text-accent" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{stats.averageLength}</p>
-              <p className="text-sm text-base-content/60">Avg. Minutes</p>
+              <p className="text-2xl font-bold animate-count-up">{stats.averageLength}</p>
+              <p className="text-sm text-base-content/50">Avg. Minutes</p>
             </div>
           </CardBody>
         </Card>
       </div>
 
       {/* Weekly chart */}
-      <Card className="mb-8">
+      <Card variant="glass" className="mb-8">
         <CardBody>
-          <h2 className="font-semibold mb-4">This Week</h2>
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="font-semibold tracking-tight">This Week</h2>
+            <span className="text-xs text-base-content/40">Minutes practiced</span>
+          </div>
           <div className="flex items-end justify-between h-32 gap-2">
             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
               <div key={day} className="flex-1 flex flex-col items-center gap-2">
                 <div className="w-full flex flex-col justify-end h-24">
                   <div
-                    className="w-full bg-primary rounded-t transition-all duration-300"
+                    className="w-full rounded-t animate-bar-grow"
                     style={{
                       height: weeklyMinutes[i] > 0 ? `${Math.max((weeklyMinutes[i] / maxMinutes) * 100, 5)}%` : '0%',
+                      background: weeklyMinutes[i] > 0 ? 'linear-gradient(to top, oklch(72% 0.14 195), oklch(72% 0.14 195 / 0.6))' : 'transparent',
+                      boxShadow: weeklyMinutes[i] > 0 ? '0 0 12px oklch(72% 0.14 195 / 0.3)' : 'none',
+                      animationDelay: `${i * 80}ms`,
                     }}
                   />
                 </div>
-                <span className="text-xs text-base-content/60">{day}</span>
+                <span className="text-xs text-base-content/40">{day}</span>
                 {weeklyMinutes[i] > 0 && (
                   <span className="text-xs text-primary font-medium">{weeklyMinutes[i]}m</span>
                 )}
@@ -213,17 +229,20 @@ function InsightsPage() {
       </Card>
 
       {/* Heatmap */}
-      <Card>
+      <Card variant="glass">
         <CardBody>
-          <h2 className="font-semibold mb-4 flex items-center gap-2">
+          <h2 className="font-semibold mb-4 flex items-center gap-2 tracking-tight">
             <Calendar className="h-5 w-5" />
             Practice History
           </h2>
 
           {stats.sessionsCompleted === 0 ? (
-            <div className="text-center py-8 text-base-content/60">
-              <p>No practice sessions recorded yet.</p>
-              <p className="text-sm mt-1">Start a meditation to track your progress!</p>
+            <div className="text-center py-12">
+              <div className="w-14 h-14 bg-base-200 rounded-full flex items-center justify-center mx-auto mb-4 animate-float">
+                <Calendar className="h-7 w-7 text-base-content/30" />
+              </div>
+              <p className="text-base-content/50 font-medium mb-1">No sessions recorded yet</p>
+              <p className="text-sm text-base-content/30">Start a meditation to see your progress here</p>
             </div>
           ) : (
             <>
@@ -240,30 +259,32 @@ function InsightsPage() {
                 >
                   {heatmapCells.map((cell, i) => {
                     const levelClasses = [
-                      'bg-base-300',
-                      'bg-primary/30',
-                      'bg-primary/50',
-                      'bg-primary/70',
+                      'bg-white/5',
+                      'bg-primary/25',
+                      'bg-primary/45',
+                      'bg-primary/65',
                       'bg-primary',
                     ]
+                    const col = Math.floor(i / 7)
 
                     return (
                       <div
                         key={i}
-                        className={`aspect-square rounded-sm ${levelClasses[cell.level]} cursor-default min-w-[10px] max-w-[14px]`}
+                        className={`aspect-square rounded-sm ${levelClasses[cell.level]} cursor-default min-w-[10px] max-w-[14px] animate-fade-scale-in`}
+                        style={{ animationDelay: `${col * 8}ms` }}
                         title={`${cell.date}: ${cell.value} minutes`}
                       />
                     )
                   })}
                 </div>
               </div>
-              <div className="flex items-center justify-end gap-2 mt-4 text-xs text-base-content/60">
+              <div className="flex items-center justify-end gap-2 mt-4 text-xs text-base-content/40">
                 <span>Less</span>
                 <div className="flex gap-1">
-                  <div className="w-3 h-3 rounded-sm bg-base-300" />
-                  <div className="w-3 h-3 rounded-sm bg-primary/30" />
-                  <div className="w-3 h-3 rounded-sm bg-primary/50" />
-                  <div className="w-3 h-3 rounded-sm bg-primary/70" />
+                  <div className="w-3 h-3 rounded-sm bg-white/5" />
+                  <div className="w-3 h-3 rounded-sm bg-primary/25" />
+                  <div className="w-3 h-3 rounded-sm bg-primary/45" />
+                  <div className="w-3 h-3 rounded-sm bg-primary/65" />
                   <div className="w-3 h-3 rounded-sm bg-primary" />
                 </div>
                 <span>More</span>
@@ -275,8 +296,13 @@ function InsightsPage() {
 
       {/* Best streak */}
       {stats.longestStreak > 0 && (
-        <div className="mt-4 text-center text-base-content/60 text-sm">
-          Your longest streak: {stats.longestStreak} days
+        <div className="mt-6 flex justify-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 glass-dark border border-white/10 rounded-full">
+            <Flame className="h-4 w-4 text-warning" />
+            <span className="text-sm text-base-content/60">
+              Longest streak: <span className="font-semibold text-base-content">{stats.longestStreak} days</span>
+            </span>
+          </div>
         </div>
       )}
     </div>

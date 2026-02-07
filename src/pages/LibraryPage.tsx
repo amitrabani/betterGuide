@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Library, Clock, Trash2, Plus, Search, X, AlertCircle, RefreshCw } from 'lucide-react'
-import { Card, CardBody, Button, Modal, ModalActions, useToast } from '@/components/ui'
+import { Card, CardBody, Button, Modal, ModalActions, useToast, Skeleton, CardSkeleton } from '@/components/ui'
 import { getUserSessions, deleteSession } from '@/services/persistence'
 import type { Session, Lineage, Intent } from '@/types/session'
 
@@ -33,7 +33,7 @@ function FilterChip({
   onRemove: () => void
 }) {
   return (
-    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm">
+    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/15 text-primary text-sm">
       {label}
       <button
         onClick={onRemove}
@@ -55,23 +55,29 @@ function SessionCard({
   onDelete: () => void
 }) {
   return (
-    <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={onClick}>
+    <Card
+      variant="gradient"
+      lineage={session.lineage}
+      intent={session.intent}
+      className="cursor-pointer"
+      onClick={onClick}
+    >
       <CardBody>
         <div className="flex justify-between items-start">
           <div>
-            <h3 className="font-semibold text-lg">{session.name}</h3>
-            <p className="text-sm text-base-content/60 capitalize">
+            <h3 className="font-semibold text-lg text-white">{session.name}</h3>
+            <p className="text-sm text-white/50 capitalize">
               {lineageLabels[session.lineage]}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="badge badge-ghost">
+            <span className="badge bg-white/10 text-white/70 border-white/10 text-xs">
               {intentLabels[session.intent]}
             </span>
             <Button
               variant="ghost"
               size="sm"
-              className="text-error"
+              className="text-white/40 hover:text-error"
               onClick={(e) => {
                 e.stopPropagation()
                 onDelete()
@@ -82,10 +88,10 @@ function SessionCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 mt-4 text-sm text-base-content/70">
+        <div className="flex items-center gap-2 mt-4 text-sm text-white/40">
           <Clock className="h-4 w-4" />
           {formatDuration(session.duration)}
-          <span className="text-base-content/40 mx-1">·</span>
+          <span className="text-white/20 mx-1">&middot;</span>
           <span>{session.prompts.length} prompts</span>
         </div>
       </CardBody>
@@ -189,8 +195,25 @@ function LibraryPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <span className="loading loading-spinner loading-lg text-primary" />
+      <div className="min-h-screen p-6 lg:p-8 animate-page-enter">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <Skeleton className="h-9 w-36 mb-3" />
+            <Skeleton className="h-5 w-52" />
+          </div>
+          <Skeleton className="h-10 w-28 rounded-xl" />
+        </div>
+        <Skeleton className="h-10 w-full max-w-md mb-4 rounded-lg" />
+        <div className="flex gap-2 mb-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-8 w-24 rounded-full" />
+          ))}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <CardSkeleton key={i} />
+          ))}
+        </div>
       </div>
     )
   }
@@ -212,18 +235,18 @@ function LibraryPage() {
   }
 
   return (
-    <div className="min-h-screen p-6">
+    <div className="min-h-screen p-6 lg:p-8 animate-page-enter">
       <header className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
+          <h1 className="text-3xl font-bold flex items-center gap-2 tracking-tight">
             <Library className="text-primary" />
             Library
           </h1>
-          <p className="text-base-content/70 mt-2">
+          <p className="text-base-content/50 mt-2">
             Your custom meditation sessions
           </p>
         </div>
-        <Button variant="primary" onClick={() => navigate('/builder')}>
+        <Button variant="primary" onClick={() => navigate('/builder')} className="rounded-xl">
           <Plus className="h-4 w-4 mr-1" />
           New Guide
         </Button>
@@ -232,11 +255,11 @@ function LibraryPage() {
       {/* Search */}
       <div className="mb-4">
         <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/30" />
           <input
             type="text"
             placeholder="Search sessions..."
-            className="input input-bordered w-full pl-10"
+            className="input w-full pl-10 bg-base-300/30 border-white/10 focus:border-primary/50 placeholder:text-base-content/30"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -251,7 +274,7 @@ function LibraryPage() {
         </div>
       </div>
 
-      {/* Filter buttons */}
+      {/* Filter buttons — pill style */}
       {sessions.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-6">
           {/* Lineage filters */}
@@ -259,10 +282,10 @@ function LibraryPage() {
             <button
               key={lineage}
               onClick={() => setFilterLineage(filterLineage === lineage ? null : lineage)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+              className={`pill-interactive px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                 filterLineage === lineage
-                  ? 'bg-primary text-primary-content'
-                  : 'bg-base-200 text-base-content/70 hover:bg-base-300'
+                  ? 'bg-primary text-primary-content shadow-glow-primary'
+                  : 'bg-base-200 text-base-content/50 hover:text-base-content/70 hover:bg-base-300'
               }`}
             >
               {lineageLabels[lineage]}
@@ -273,7 +296,7 @@ function LibraryPage() {
           ))}
 
           {availableLineages.length > 0 && availableIntents.length > 0 && (
-            <div className="w-px h-6 bg-base-300 self-center mx-1" />
+            <div className="w-px h-6 bg-white/10 self-center mx-1" />
           )}
 
           {/* Intent filters */}
@@ -281,10 +304,10 @@ function LibraryPage() {
             <button
               key={intent}
               onClick={() => setFilterIntent(filterIntent === intent ? null : intent)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+              className={`pill-interactive px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                 filterIntent === intent
-                  ? 'bg-primary text-primary-content'
-                  : 'bg-base-200 text-base-content/70 hover:bg-base-300'
+                  ? 'bg-primary text-primary-content shadow-glow-primary'
+                  : 'bg-base-200 text-base-content/50 hover:text-base-content/70 hover:bg-base-300'
               }`}
             >
               {intentLabels[intent]}
@@ -299,7 +322,7 @@ function LibraryPage() {
       {/* Active filters display */}
       {hasActiveFilters && (
         <div className="flex items-center gap-2 mb-6">
-          <span className="text-sm text-base-content/60">Filtering by:</span>
+          <span className="text-sm text-base-content/40">Filtering by:</span>
           {searchQuery && (
             <FilterChip
               label={`"${searchQuery}"`}
@@ -324,7 +347,7 @@ function LibraryPage() {
               setFilterLineage(null)
               setFilterIntent(null)
             }}
-            className="text-sm text-base-content/60 hover:text-base-content underline ml-2"
+            className="text-sm text-base-content/40 hover:text-base-content underline ml-2"
           >
             Clear all
           </button>
@@ -336,13 +359,13 @@ function LibraryPage() {
         <div className="space-y-8">
           {Object.entries(sessionsByLineage).map(([lineage, lineageSessions]) => (
             <section key={lineage}>
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 tracking-tight">
                 <span className="capitalize">{lineageLabels[lineage as Lineage]}</span>
-                <span className="text-sm font-normal text-base-content/50">
+                <span className="text-sm font-normal text-base-content/30">
                   ({lineageSessions.length})
                 </span>
               </h2>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 stagger-children">
                 {lineageSessions.map(session => (
                   <SessionCard
                     key={session.id}
@@ -357,13 +380,13 @@ function LibraryPage() {
         </div>
       ) : (
         <div className="text-center py-12">
-          <div className="w-16 h-16 bg-base-200 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Library className="h-8 w-8 text-base-content/40" />
+          <div className="w-16 h-16 bg-base-200 rounded-full flex items-center justify-center mx-auto mb-4 animate-float">
+            <Library className="h-8 w-8 text-base-content/30" />
           </div>
           {hasActiveFilters ? (
             <>
               <h2 className="text-lg font-semibold mb-2">No matching sessions</h2>
-              <p className="text-base-content/60 mb-4">
+              <p className="text-base-content/40 mb-4">
                 Try adjusting your filters
               </p>
               <Button
@@ -380,7 +403,7 @@ function LibraryPage() {
           ) : (
             <>
               <h2 className="text-lg font-semibold mb-2">No sessions yet</h2>
-              <p className="text-base-content/60 mb-4">
+              <p className="text-base-content/40 mb-4">
                 Create your first custom meditation session or customize a canonical one
               </p>
               <div className="flex gap-2 justify-center">
@@ -403,7 +426,7 @@ function LibraryPage() {
         onClose={() => !isDeleting && setDeleteModalOpen(false)}
         title="Delete Session"
       >
-        <p className="text-base-content/80">
+        <p className="text-base-content/70">
           Are you sure you want to delete "{sessionToDelete?.name}"? This action cannot be undone.
         </p>
         <ModalActions>

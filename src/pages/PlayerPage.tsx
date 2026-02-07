@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Play, Pause, SkipBack, Volume2, VolumeX, Maximize, Minimize, X, PenTool, AlertCircle } from 'lucide-react'
-import { Button, Slider, useToast } from '@/components/ui'
+import { Button, Slider, useToast, Skeleton } from '@/components/ui'
 import { useAudioEngine } from '@/audio'
 import { getSession, savePracticeSession } from '@/services/persistence'
 import { canonicalSessions } from '@/data'
@@ -192,8 +192,13 @@ function PlayerPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <span className="loading loading-spinner loading-lg text-primary" />
+      <div className="min-h-screen bg-gradient-to-b from-base-100 via-base-200 to-base-300 flex flex-col items-center justify-center animate-page-enter">
+        <div className="relative w-64 h-64 mb-8">
+          <Skeleton className="w-full h-full rounded-full" />
+        </div>
+        <Skeleton className="h-7 w-48 mb-3" />
+        <Skeleton className="h-5 w-24 mb-8" />
+        <Skeleton className="h-5 w-64" />
       </div>
     )
   }
@@ -221,8 +226,23 @@ function PlayerPage() {
   return (
     <div
       ref={containerRef}
-      className="min-h-screen bg-gradient-to-b from-base-200 to-base-300 flex flex-col relative"
+      className="min-h-screen bg-gradient-to-b from-base-100 via-base-200 to-base-300 flex flex-col relative overflow-hidden"
     >
+      {/* Ambient background glows */}
+      <div
+        className="absolute top-1/4 -left-32 w-96 h-96 rounded-full pointer-events-none opacity-20 animate-float"
+        style={{
+          background: 'radial-gradient(circle, oklch(72% 0.14 195 / 0.4) 0%, transparent 70%)',
+        }}
+      />
+      <div
+        className="absolute bottom-1/4 -right-32 w-96 h-96 rounded-full pointer-events-none opacity-15 animate-float"
+        style={{
+          background: 'radial-gradient(circle, oklch(68% 0.12 290 / 0.4) 0%, transparent 70%)',
+          animationDelay: '3s',
+        }}
+      />
+
       {/* Exit overlay for long press */}
       <ExitOverlay isVisible={isExitPressed} progress={exitProgress} />
 
@@ -250,9 +270,9 @@ function PlayerPage() {
               )}
             </Button>
 
-            {/* Volume popup */}
+            {/* Volume popup — glass */}
             {showVolume && (
-              <div className="absolute right-0 top-full mt-2 p-4 bg-base-100 rounded-lg shadow-lg w-48 z-50">
+              <div className="absolute right-0 top-full mt-2 p-4 glass-dark border border-white/10 rounded-2xl shadow-lg w-48 z-50">
                 <div className="flex items-center gap-2">
                   <button
                     className="btn btn-ghost btn-xs"
@@ -287,16 +307,16 @@ function PlayerPage() {
 
         {/* Session info */}
         <h1 className="text-2xl font-bold mb-2 mt-8">{session.name}</h1>
-        <p className="text-base-content/60 capitalize mb-8">{session.lineage}</p>
+        <p className="text-base-content/40 capitalize mb-8">{session.lineage}</p>
 
         {/* Current prompt display */}
         <div className="max-w-md text-center mb-8 min-h-[60px]">
           {currentPrompt ? (
-            <p className="text-lg text-base-content/80 italic animate-fade-in">
+            <p key={currentPrompt.id} className="text-lg text-base-content/70 italic animate-fade-in">
               "{currentPrompt.text}"
             </p>
           ) : (
-            <p className="text-base-content/40 text-sm">
+            <p className="text-base-content/30 text-sm">
               {isPlaying ? 'Breathe deeply...' : 'Press play to begin'}
             </p>
           )}
@@ -311,7 +331,7 @@ function PlayerPage() {
           >
             <button
               {...exitHandlers}
-              className="flex flex-col items-center gap-2 text-base-content/40 hover:text-base-content/60"
+              className="flex flex-col items-center gap-2 text-base-content/30 hover:text-base-content/50"
             >
               <X className="h-6 w-6" />
               <span className="text-xs">Hold to exit</span>
@@ -326,9 +346,9 @@ function PlayerPage() {
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
-        {/* Mode toggle */}
+        {/* Mode toggle — glass */}
         <div className="flex justify-center mb-6">
-          <div className="inline-flex items-center gap-1 p-1 bg-base-300/50 rounded-full">
+          <div className="inline-flex items-center gap-1 p-1 glass-dark border border-white/10 rounded-full">
             <button
               className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-primary text-primary-content shadow-sm"
             >
@@ -337,7 +357,7 @@ function PlayerPage() {
             </button>
             <button
               onClick={() => navigate(`/builder/${sessionId}`)}
-              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-base-content/60 hover:text-base-content hover:bg-base-200 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-base-content/40 hover:text-base-content hover:bg-white/5 transition-colors"
             >
               <PenTool className="h-4 w-4" />
               Edit
@@ -345,9 +365,9 @@ function PlayerPage() {
           </div>
         </div>
 
-        {/* Progress bar */}
+        {/* Progress bar — thinner with glow */}
         <div
-          className="max-w-md mx-auto mb-6 h-3 bg-base-300 rounded-full cursor-pointer relative touch-none"
+          className="max-w-md mx-auto mb-6 h-2 bg-white/5 rounded-full cursor-pointer relative touch-none"
           onPointerDown={(e) => {
             const rect = e.currentTarget.getBoundingClientRect()
             const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
@@ -366,12 +386,12 @@ function PlayerPage() {
           }}
         >
           <div
-            className="absolute inset-y-0 left-0 bg-primary rounded-full pointer-events-none"
+            className="absolute inset-y-0 left-0 bg-primary rounded-full pointer-events-none shadow-glow-primary"
             style={{ width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
           />
           <div
-            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rounded-full shadow pointer-events-none"
-            style={{ left: duration > 0 ? `calc(${(currentTime / duration) * 100}% - 8px)` : '0px' }}
+            className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-primary rounded-full shadow-glow-primary pointer-events-none"
+            style={{ left: duration > 0 ? `calc(${(currentTime / duration) * 100}% - 7px)` : '0px' }}
           />
         </div>
 
@@ -395,22 +415,12 @@ function PlayerPage() {
         </div>
 
         {/* Time display */}
-        <div className="flex justify-between text-sm text-base-content/60 mt-4 max-w-md mx-auto">
+        <div className="flex justify-between text-sm text-base-content/40 mt-4 max-w-md mx-auto">
           <span>{formatTime(currentTime)}</span>
           <span>{formatTime(duration)}</span>
         </div>
       </footer>
 
-      {/* Global styles */}
-      <style>{`
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.5s ease-out;
-        }
-      `}</style>
     </div>
   )
 }

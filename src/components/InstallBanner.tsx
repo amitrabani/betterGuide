@@ -10,7 +10,7 @@ export function InstallBanner() {
   if (!canInstall || dismissed) return null
 
   return (
-    <div className="fixed bottom-20 left-4 right-4 bg-base-100 border border-base-300 rounded-lg shadow-lg p-4 z-50 flex items-center gap-4 animate-slide-up">
+    <div className="fixed bottom-20 left-4 right-4 glass-dark border border-white/10 rounded-2xl shadow-lg p-4 z-50 flex items-center gap-4 animate-slide-up">
       <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
         <Download className="h-5 w-5 text-primary" />
       </div>
@@ -22,7 +22,7 @@ export function InstallBanner() {
         Install
       </Button>
       <button
-        className="p-1 hover:bg-base-200 rounded"
+        className="p-1 hover:bg-white/10 rounded"
         onClick={() => setDismissed(true)}
         aria-label="Dismiss"
       >

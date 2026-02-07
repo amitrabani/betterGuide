@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { PenTool, Save, Play, AlertCircle, Mic } from 'lucide-react'
-import { Button, Input, Select, Modal, ModalActions, useToast } from '@/components/ui'
+import { Button, Input, Select, Modal, ModalActions, useToast, Skeleton } from '@/components/ui'
 import { Timeline, TransportControls, PropertiesPanel } from '@/features/builder'
 import { VoicePickerModal } from '@/features/builder/components/VoicePickerModal'
 import { useBuilderStore } from '@/features/builder'
@@ -204,8 +204,25 @@ function BuilderPage() {
   // Show loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <span className="loading loading-spinner loading-lg text-primary" />
+      <div className="min-h-screen flex flex-col animate-page-enter">
+        <div className="bg-base-200/50 border-b border-white/5 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-5 w-5 rounded" />
+              <div>
+                <Skeleton className="h-5 w-40 mb-1" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-8 w-20 rounded-lg" />
+              <Skeleton className="h-8 w-16 rounded-lg" />
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 p-4">
+          <Skeleton className="h-full min-h-[280px] rounded-xl" />
+        </div>
       </div>
     )
   }
@@ -228,7 +245,7 @@ function BuilderPage() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="bg-base-200 border-b border-base-300 p-4">
+      <header className="bg-base-200/50 border-b border-white/5 backdrop-blur-sm p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <PenTool className="text-primary h-5 w-5" />
@@ -281,11 +298,11 @@ function BuilderPage() {
             <PropertiesPanel />
 
             {/* Mode toggle */}
-            <div className="flex justify-center py-3 border-t border-base-200">
-              <div className="inline-flex items-center gap-1 p-1 bg-base-300/50 rounded-full">
+            <div className="flex justify-center py-3 border-t border-white/5">
+              <div className="inline-flex items-center gap-1 p-1 glass-dark border border-white/10 rounded-full">
                 <button
                   onClick={handlePreview}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-base-content/60 hover:text-base-content hover:bg-base-200 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-base-content/40 hover:text-base-content hover:bg-white/5 transition-colors"
                 >
                   <Play className="h-4 w-4" />
                   Play
